@@ -7,13 +7,22 @@ using UnityEngine;
 /// </summary>
 public class Datatypes
 {
-    public abstract class CreateableObject
+    /// <summary>
+    /// DO NOT CREATE THIS OBJECT DIRECTLY. Only made for inheriting, I would of made it abstract if it weren't for those pesky kids (Wanted to set the isCreated variable)! 
+    /// </summary>
+    public class CreateableObject
     {
+        protected bool isCreated = false;
+
         /// <summary>
         /// Creates a unity project out of the datatype.
         /// </summary>
         /// <returns>Returns the created unity object.</returns>
-        public abstract UnityEngine.Object Create();
+        public virtual UnityEngine.Object Create()
+        {
+            isCreated = true;
+            return null;
+        }
     }
 
     public class Scene : CreateableObject
@@ -72,6 +81,28 @@ public class Datatypes
         public List<Vertex> vertices = new List<Vertex>();
         public List<int> triangles = new List<int>();
         public Material material;
+        public List<MorphTarget> morphTargets = new List<MorphTarget>();
+
+        /// <summary>
+        /// Bare minimum constructor for testing.
+        /// </summary>
+        public Mesh(Transform transform, Vector3[] positions, int[] triangles, List<MorphTarget> morphTargets = null)
+        {
+            this.transform = transform;
+
+            for (int i = 0; i < positions.Length; i++)
+            {
+                Vertex newVertex = new Vertex(positions[i]);
+                vertices.Add(newVertex);
+            }
+
+            for (int i = 0; i < triangles.Length; i++)
+            {
+                this.triangles.Add(triangles[i]);
+            }
+
+            this.morphTargets = morphTargets;
+        }
 
         public override UnityEngine.Object Create()
         {
@@ -83,7 +114,20 @@ public class Datatypes
             MeshFilter meshFilter = transformOB.AddComponent<MeshFilter>();
             meshFilter.mesh = mesh;
             MeshRenderer meshRenderer = transformOB.AddComponent<MeshRenderer>();
-            meshRenderer.material = (UnityEngine.Material)material.Create();
+
+            // Check so that we have a material.
+            if (material != null)
+            {
+                meshRenderer.material = (UnityEngine.Material)material.Create();
+            }
+            else
+            {
+                Debug.Log("Missing material.");
+            }
+
+            // Add morph player to gameobject.
+            MorphAnimPlayer morphAnimPlayer = transformOB.AddComponent<MorphAnimPlayer>();
+            morphAnimPlayer.Set(morphTargets, meshFilter);
 
             // --Separate the vertices values into separate lists with its members.
             List<Vector3> positions = new List<Vector3>();
@@ -99,13 +143,45 @@ public class Datatypes
             // --Separate the vertices values into separate lists with its members.
 
             mesh.vertices = positions.ToArray();
-            mesh.normals = normals.ToArray();
-            mesh.uv = uvs.ToArray();
+
+            // Check if we have normals, otherways generate them.
+            if (normals != null && normals.Count == positions.Count)
+            {
+                mesh.normals = normals.ToArray();
+            }
+
+            // Check so that we have uvs.
+            if (uvs != null && uvs.Count == positions.Count)
+            {
+                mesh.uv = uvs.ToArray();
+            }
 
             mesh.triangles = triangles.ToArray();
-            //mesh.RecalculateNormals();
+
+            // mesh.RecalculateNormals();
+
+            morphAnimPlayer.PlayMorph();
 
             return mesh;
+        }
+    }
+
+    public class MorphTarget
+    {
+        public float interval = 1f;
+        public List<Vector3> positions = new List<Vector3>();
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public MorphTarget(Vector3[] positions, float interval = 1f)
+        {
+            for (int i = 0; i < positions.Length; i++)
+            {
+                this.positions.Add(positions[i]);
+            }
+
+            this.interval = interval;
         }
     }
 
@@ -113,7 +189,22 @@ public class Datatypes
     {
         public Vector3 position;
         public Vector3 normal;
-        public Vector2 uvCoord;        
+        public Vector2 uvCoord;    
+        
+        /// <summary>
+        /// Bare minimum constructor.
+        /// </summary>
+        public Vertex(Vector3 position)
+        {
+            this.position = position;
+        }
+
+        public Vertex(Vector3 position, Vector3 normal, Vector2 uvCoord)
+        {
+            this.position = position;
+            this.normal = normal;
+            this.uvCoord = uvCoord;
+        }
     }
 
     public class Material : CreateableObject
